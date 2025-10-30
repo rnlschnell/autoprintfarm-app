@@ -1,254 +1,177 @@
-import { useEffect } from "react";
-import type {
-  ActionFunctionArgs,
-  HeadersFunction,
-  LoaderFunctionArgs,
-} from "react-router";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+import type { LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
 
-  return null;
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
+  // Get shop information
+  const shopResponse = await admin.graphql(
     `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
+      query {
+        shop {
+          name
+          email
+          plan {
+            displayName
+          }
+          currencyCode
+        }
+      }
+    `
+  );
+
+  const shopData = await shopResponse.json();
+
+  // Get order count (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const ordersResponse = await admin.graphql(
+    `#graphql
+      query($query: String!) {
+        orders(first: 1, query: $query) {
+          edges {
+            node {
+              id
             }
           }
         }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-
-  const product = responseJson.data!.productCreate!.product!;
-  const variantId = product.variants.edges[0]!.node!.id!;
-
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
       }
-    }`,
+    `,
     {
       variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
+        query: `created_at:>=${thirtyDaysAgo.toISOString().split('T')[0]}`
+      }
+    }
   );
 
-  const variantResponseJson = await variantResponse.json();
+  const ordersData = await ordersResponse.json();
 
   return {
-    product: responseJson!.data!.productCreate!.product,
-    variant:
-      variantResponseJson!.data!.productVariantsBulkUpdate!.productVariants,
+    shop: shopData.data?.shop,
+    shopDomain: session.shop,
+    // For now, we'll use mock data for devices since we haven't built that yet
+    deviceCount: 0,
+    orderCount: ordersData.data?.orders?.edges?.length || 0,
   };
 };
 
 export default function Index() {
-  const fetcher = useFetcher<typeof action>();
-
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
-
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  const { shop, shopDomain, deviceCount, orderCount } = useLoaderData<typeof loader>();
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
-
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
+    <s-page heading="AutoPrintFarm Dashboard">
+      <s-section heading="Welcome to AutoPrintFarm">
         <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
+          Connect your Raspberry Pi 3D print farms to automatically receive orders from your Shopify store.
         </s-paragraph>
       </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references.
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
+
+      <s-section heading="Store Information">
+        <s-stack direction="block" gap="base">
+          <s-stack direction="inline" gap="base">
+            <s-text variant="heading-sm">Store Name:</s-text>
+            <s-text>{shop?.name || shopDomain}</s-text>
+          </s-stack>
+          <s-stack direction="inline" gap="base">
+            <s-text variant="heading-sm">Email:</s-text>
+            <s-text>{shop?.email}</s-text>
+          </s-stack>
+          <s-stack direction="inline" gap="base">
+            <s-text variant="heading-sm">Plan:</s-text>
+            <s-text>{shop?.plan?.displayName}</s-text>
+          </s-stack>
+          <s-stack direction="inline" gap="base">
+            <s-text variant="heading-sm">Currency:</s-text>
+            <s-text>{shop?.currencyCode}</s-text>
+          </s-stack>
         </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
+      </s-section>
 
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
+      <s-section heading="Quick Stats">
+        <s-stack direction="block" gap="base">
+          <s-box padding="base" borderWidth="base" borderRadius="base">
+            <s-stack direction="block" gap="tight">
+              <s-text variant="heading-lg">{deviceCount}</s-text>
+              <s-text>Connected Print Farm Devices</s-text>
             </s-stack>
-          </s-section>
-        )}
+          </s-box>
+
+          <s-box padding="base" borderWidth="base" borderRadius="base">
+            <s-stack direction="block" gap="tight">
+              <s-text variant="heading-lg">{orderCount}</s-text>
+              <s-text>Orders (Last 30 Days)</s-text>
+            </s-stack>
+          </s-box>
+        </s-stack>
       </s-section>
 
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
+      <s-section heading="Get Started">
+        <s-stack direction="block" gap="base">
+          <s-paragraph>
+            To connect your Raspberry Pi print farm:
+          </s-paragraph>
+          <s-unordered-list>
+            <s-list-item>
+              Click "Devices" in the navigation menu
+            </s-list-item>
+            <s-list-item>
+              Click "Add Print Farm Device"
+            </s-list-item>
+            <s-list-item>
+              Copy the generated API credentials
+            </s-list-item>
+            <s-list-item>
+              Configure your Raspberry Pi with these credentials
+            </s-list-item>
+          </s-unordered-list>
+          <s-button href="/app/devices" variant="primary">
+            Manage Devices
+          </s-button>
+        </s-stack>
       </s-section>
 
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
+      <s-section slot="aside" heading="How It Works">
+        <s-stack direction="block" gap="base">
+          <s-paragraph>
+            <s-text variant="heading-sm">1. Install App</s-text>
+          </s-paragraph>
+          <s-paragraph>
+            Install this app in your Shopify store to enable order synchronization.
+          </s-paragraph>
+
+          <s-paragraph>
+            <s-text variant="heading-sm">2. Connect Devices</s-text>
+          </s-paragraph>
+          <s-paragraph>
+            Generate API credentials for each Raspberry Pi print farm you want to connect.
+          </s-paragraph>
+
+          <s-paragraph>
+            <s-text variant="heading-sm">3. Automatic Sync</s-text>
+          </s-paragraph>
+          <s-paragraph>
+            Your Pi devices will automatically receive new orders and can start printing.
+          </s-paragraph>
+        </s-stack>
+      </s-section>
+
+      <s-section slot="aside" heading="Need Help?">
+        <s-stack direction="block" gap="base">
+          <s-paragraph>
+            Visit our documentation for setup guides and troubleshooting.
+          </s-paragraph>
+          <s-button href="https://github.com/yourusername/autoprintfarm" target="_blank" variant="tertiary">
+            View Documentation
+          </s-button>
+        </s-stack>
       </s-section>
     </s-page>
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
+export const headers = (headersArgs: any) => {
   return boundary.headers(headersArgs);
 };
