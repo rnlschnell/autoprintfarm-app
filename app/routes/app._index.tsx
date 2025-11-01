@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import prisma from "../db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -49,12 +50,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const ordersData = await ordersResponse.json();
 
+  // Get real device count from database
+  const tenant = await prisma.tenant.findUnique({
+    where: { shopDomain: session.shop },
+    include: {
+      devices: {
+        where: { status: "active" },
+      },
+    },
+  });
+
   return {
     shop: shopData.data?.shop,
     shopDomain: session.shop,
-    // For now, we'll use mock data for devices since we haven't built that yet
-    deviceCount: 0,
+    deviceCount: tenant?.devices?.length || 0,
     orderCount: ordersData.data?.orders?.edges?.length || 0,
+    tenantConnected: !!tenant,
   };
 };
 

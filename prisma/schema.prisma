@@ -30,3 +30,51 @@ model Session {
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
 }
+
+model Tenant {
+  id            String    @id  // Existing Supabase tenant_id from PrintFarmSoftware
+  shopDomain    String    @unique
+  connectedAt   DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  devices       Device[]
+  orders        Order[]
+}
+
+model Device {
+  id            String    @id @default(uuid())
+  tenantId      String
+  name          String
+  apiKeyHash    String    // Bcrypt hashed API key
+  status        String    @default("active")  // active, revoked
+  lastSeenAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders        Order[]
+
+  @@index([tenantId])
+  @@index([apiKeyHash])
+}
+
+model Order {
+  id                String    @id @default(uuid())
+  tenantId          String
+  shopifyOrderId    String    @unique
+  orderNumber       String
+  status            String    @default("pending")  // pending, assigned, printing, completed, cancelled
+  assignedDeviceId  String?
+  orderData         String    // JSON blob of full order details
+  createdAt         DateTime  @default(now())
+  assignedAt        DateTime?
+  completedAt       DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedDevice    Device?   @relation(fields: [assignedDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([assignedDeviceId])
+  @@index([shopifyOrderId])
+}
