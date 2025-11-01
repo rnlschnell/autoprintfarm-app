@@ -13,12 +13,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const tenantResponse = await fetch(`${baseUrl}/api/tenant`, {
     headers: { Cookie: request.headers.get("Cookie") || "" },
   });
-  const tenantData = await tenantResponse.json();
+
+  let tenantData = { connected: false };
+  if (tenantResponse.ok) {
+    const text = await tenantResponse.text();
+    if (text) {
+      tenantData = JSON.parse(text);
+    }
+  }
 
   const devicesResponse = await fetch(`${baseUrl}/api/devices`, {
     headers: { Cookie: request.headers.get("Cookie") || "" },
   });
-  const devicesData = await devicesResponse.json();
+
+  let devicesData = { devices: [] };
+  if (devicesResponse.ok) {
+    const text = await devicesResponse.text();
+    if (text) {
+      devicesData = JSON.parse(text);
+    }
+  }
 
   return {
     shopDomain: session.shop,

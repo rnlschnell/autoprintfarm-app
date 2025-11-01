@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { json } from "@react-router/node";
+import { data } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import type {
@@ -25,12 +25,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
 
     if (!tenant) {
-      return json<TenantStatusResponse>({
+      return data<TenantStatusResponse>({
         connected: false,
       });
     }
 
-    return json<TenantStatusResponse>({
+    return data<TenantStatusResponse>({
       connected: true,
       tenant: {
         id: tenant.id,
@@ -40,7 +40,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   } catch (error) {
     console.error("Error checking tenant status:", error);
-    return json<TenantStatusResponse>(
+    return data<TenantStatusResponse>(
       { connected: false },
       { status: 500 }
     );
@@ -54,7 +54,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);
 
   if (request.method !== "POST") {
-    return json({ error: "Method not allowed" }, { status: 405 });
+    return data({ error: "Method not allowed" }, { status: 405 });
   }
 
   try {
@@ -62,7 +62,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const { tenantId } = body;
 
     if (!tenantId || typeof tenantId !== "string") {
-      return json<ConnectTenantResponse>(
+      return data<ConnectTenantResponse>(
         {
           success: false,
           message: "Invalid tenant ID provided",
@@ -75,7 +75,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(tenantId)) {
-      return json<ConnectTenantResponse>(
+      return data<ConnectTenantResponse>(
         {
           success: false,
           message: "Tenant ID must be a valid UUID",
@@ -95,7 +95,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     if (existingTenant) {
       if (existingTenant.id === tenantId) {
-        return json<ConnectTenantResponse>({
+        return data<ConnectTenantResponse>({
           success: true,
           message: "Shop is already connected to this tenant",
           tenant: {
@@ -112,7 +112,7 @@ export async function action({ request }: ActionFunctionArgs) {
         data: { id: tenantId },
       });
 
-      return json<ConnectTenantResponse>({
+      return data<ConnectTenantResponse>({
         success: true,
         message: "Tenant connection updated successfully",
         tenant: {
@@ -131,7 +131,7 @@ export async function action({ request }: ActionFunctionArgs) {
       },
     });
 
-    return json<ConnectTenantResponse>({
+    return data<ConnectTenantResponse>({
       success: true,
       message: "Tenant connected successfully",
       tenant: {
@@ -145,7 +145,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Handle unique constraint violations
     if (error.code === "P2002") {
-      return json<ConnectTenantResponse>(
+      return data<ConnectTenantResponse>(
         {
           success: false,
           message: "This tenant ID is already connected to another shop",
@@ -154,7 +154,7 @@ export async function action({ request }: ActionFunctionArgs) {
       );
     }
 
-    return json<ConnectTenantResponse>(
+    return data<ConnectTenantResponse>(
       {
         success: false,
         message: "Failed to connect tenant. Please try again.",

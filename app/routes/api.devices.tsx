@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { json } from "@react-router/node";
+import { data } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { generateApiKey, hashApiKey } from "../utils/crypto.server";
@@ -28,16 +28,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
 
     if (!tenant) {
-      return json<ListDevicesResponse>({ devices: [] });
+      return data<ListDevicesResponse>({ devices: [] });
     }
 
     // Remove apiKeyHash from response
     const devices = tenant.devices.map(({ apiKeyHash, ...device }) => device);
 
-    return json<ListDevicesResponse>({ devices });
+    return data<ListDevicesResponse>({ devices });
   } catch (error) {
     console.error("Error fetching devices:", error);
-    return json<ListDevicesResponse>(
+    return data<ListDevicesResponse>(
       { devices: [] },
       { status: 500 }
     );
@@ -57,7 +57,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return handleDeleteDevice(request, session.shop);
   }
 
-  return json({ error: "Method not allowed" }, { status: 405 });
+  return data({ error: "Method not allowed" }, { status: 405 });
 }
 
 /**
@@ -69,7 +69,7 @@ async function handleCreateDevice(request: Request, shopDomain: string) {
     const { name } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return json<CreateDeviceResponse>(
+      return data<CreateDeviceResponse>(
         {
           device: {} as any,
           message: "Device name is required",
@@ -84,7 +84,7 @@ async function handleCreateDevice(request: Request, shopDomain: string) {
     });
 
     if (!tenant) {
-      return json<CreateDeviceResponse>(
+      return data<CreateDeviceResponse>(
         {
           device: {} as any,
           message: "Tenant not connected. Please connect your Print Farm first.",
@@ -110,7 +110,7 @@ async function handleCreateDevice(request: Request, shopDomain: string) {
     // Return device with API key (only time it will be shown)
     const { apiKeyHash: _, ...deviceWithoutHash } = device;
 
-    return json<CreateDeviceResponse>({
+    return data<CreateDeviceResponse>({
       device: {
         ...deviceWithoutHash,
         apiKey,
@@ -119,7 +119,7 @@ async function handleCreateDevice(request: Request, shopDomain: string) {
     });
   } catch (error) {
     console.error("Error creating device:", error);
-    return json<CreateDeviceResponse>(
+    return data<CreateDeviceResponse>(
       {
         device: {} as any,
         message: "Failed to create device. Please try again.",
@@ -138,7 +138,7 @@ async function handleDeleteDevice(request: Request, shopDomain: string) {
     const deviceId = url.searchParams.get("id");
 
     if (!deviceId) {
-      return json<DeleteDeviceResponse>(
+      return data<DeleteDeviceResponse>(
         {
           success: false,
           message: "Device ID is required",
@@ -153,7 +153,7 @@ async function handleDeleteDevice(request: Request, shopDomain: string) {
     });
 
     if (!tenant) {
-      return json<DeleteDeviceResponse>(
+      return data<DeleteDeviceResponse>(
         {
           success: false,
           message: "Tenant not found",
@@ -171,7 +171,7 @@ async function handleDeleteDevice(request: Request, shopDomain: string) {
     });
 
     if (!device) {
-      return json<DeleteDeviceResponse>(
+      return data<DeleteDeviceResponse>(
         {
           success: false,
           message: "Device not found",
@@ -190,13 +190,13 @@ async function handleDeleteDevice(request: Request, shopDomain: string) {
       },
     });
 
-    return json<DeleteDeviceResponse>({
+    return data<DeleteDeviceResponse>({
       success: true,
       message: "Device access revoked successfully",
     });
   } catch (error) {
     console.error("Error deleting device:", error);
-    return json<DeleteDeviceResponse>(
+    return data<DeleteDeviceResponse>(
       {
         success: false,
         message: "Failed to revoke device access. Please try again.",
