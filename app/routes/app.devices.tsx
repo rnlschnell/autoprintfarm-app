@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData, useFetcher, useNavigate } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useState, useEffect } from "react";
@@ -43,6 +43,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function Devices() {
   const { shopDomain, tenantStatus, devices: initialDevices } = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const tenantFetcher = useFetcher();
   const deviceFetcher = useFetcher();
   const deleteFetcher = useFetcher();
@@ -80,10 +81,10 @@ export default function Devices() {
   // Refresh after tenant connection
   useEffect(() => {
     if (tenantFetcher.data?.success) {
-      // Refresh page to get updated tenant status
-      window.location.reload();
+      // Navigate to same page to trigger loader refresh (preserves auth context)
+      navigate(".", { replace: true });
     }
-  }, [tenantFetcher.data]);
+  }, [tenantFetcher.data, navigate]);
 
   const handleTenantConnect = () => {
     tenantFetcher.submit(
