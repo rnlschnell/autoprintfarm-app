@@ -77,6 +77,14 @@ export default function Devices() {
     }
   }, [deleteFetcher.data]);
 
+  // Refresh after tenant connection
+  useEffect(() => {
+    if (tenantFetcher.data?.success) {
+      // Refresh page to get updated tenant status
+      window.location.reload();
+    }
+  }, [tenantFetcher.data]);
+
   const handleTenantConnect = () => {
     tenantFetcher.submit(
       { tenantId },
