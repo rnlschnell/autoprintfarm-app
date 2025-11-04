@@ -57,6 +57,14 @@ export default function Devices() {
   const [devices, setDevices] = useState(initialDevices);
   const [copiedApiKey, setCopiedApiKey] = useState(false);
   const [copiedTenantId, setCopiedTenantId] = useState(false);
+  const [tenantIdError, setTenantIdError] = useState("");
+  const [deviceNameError, setDeviceNameError] = useState("");
+
+  // UUID validation regex
+  const isValidUUID = (uuid: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+  };
 
   // Update devices when fetcher returns
   useEffect(() => {
@@ -87,6 +95,17 @@ export default function Devices() {
   }, [tenantFetcher.data, navigate]);
 
   const handleTenantConnect = () => {
+    // Validate tenant ID format
+    if (!tenantId.trim()) {
+      setTenantIdError("Tenant ID is required");
+      return;
+    }
+    if (!isValidUUID(tenantId)) {
+      setTenantIdError("Please enter a valid UUID format (e.g., f448c280-3009-4120-b701-9f25b5e78ebb)");
+      return;
+    }
+    setTenantIdError("");
+
     tenantFetcher.submit(
       { tenantId },
       { method: "post", action: "/api/tenant", encType: "application/json" }
@@ -94,6 +113,21 @@ export default function Devices() {
   };
 
   const handleCreateDevice = () => {
+    // Validate device name
+    if (!deviceName.trim()) {
+      setDeviceNameError("Device name is required");
+      return;
+    }
+    if (deviceName.trim().length < 3) {
+      setDeviceNameError("Device name must be at least 3 characters");
+      return;
+    }
+    if (deviceName.trim().length > 50) {
+      setDeviceNameError("Device name must be less than 50 characters");
+      return;
+    }
+    setDeviceNameError("");
+
     deviceFetcher.submit(
       { name: deviceName },
       { method: "post", action: "/api/devices", encType: "application/json" }
@@ -165,20 +199,22 @@ export default function Devices() {
 
                 <s-stack direction="block" gap="tight">
                   <s-text variant="heading-sm">Enter Tenant ID</s-text>
-                  <input
-                    type="text"
+                  <s-text-field
                     value={tenantId}
-                    onChange={(e) => setTenantId(e.target.value)}
-                    placeholder="f448c280-3009-4120-b701-9f25b5e78ebb"
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                      fontSize: "14px",
-                      fontFamily: "monospace",
+                    onInput={(e: any) => {
+                      setTenantId(e.target.value);
+                      setTenantIdError("");
                     }}
+                    placeholder="f448c280-3009-4120-b701-9f25b5e78ebb"
+                    autoComplete="off"
+                    monospaced
+                    error={tenantIdError}
                   />
+                  {tenantIdError && (
+                    <s-text variant="body-sm" tone="critical">
+                      {tenantIdError}
+                    </s-text>
+                  )}
                 </s-stack>
 
                 {tenantFetcher.data?.message && (
@@ -321,161 +357,115 @@ export default function Devices() {
       </s-section>
 
       {/* Add Device Modal */}
-      {showDeviceModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowDeviceModal(false)}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: "24px",
-              borderRadius: "8px",
-              maxWidth: "500px",
-              width: "90%",
-            }}
-            onClick={(e) => e.stopPropagation()}
+      <s-modal
+        id="add-device-modal"
+        heading="Add New Device"
+        open={showDeviceModal}
+        onClose={() => setShowDeviceModal(false)}
+      >
+        <s-stack direction="block" gap="base">
+          <s-stack direction="block" gap="tight">
+            <s-text variant="body-md">Device Name</s-text>
+            <s-text-field
+              value={deviceName}
+              onInput={(e: any) => {
+                setDeviceName(e.target.value);
+                setDeviceNameError("");
+              }}
+              placeholder="Workshop Pi #1"
+              autoComplete="off"
+              error={deviceNameError}
+            />
+            {deviceNameError && (
+              <s-text variant="body-sm" tone="critical">
+                {deviceNameError}
+              </s-text>
+            )}
+          </s-stack>
+
+          {deviceFetcher.data?.message && !deviceFetcher.data?.success && (
+            <s-banner tone="critical">{deviceFetcher.data.message}</s-banner>
+          )}
+        </s-stack>
+
+        <s-stack slot="primaryAction">
+          <s-button
+            variant="primary"
+            onClick={handleCreateDevice}
+            disabled={!deviceName || deviceFetcher.state === "submitting"}
           >
-            <s-stack direction="block" gap="base">
-              <s-text variant="heading-lg">Add New Device</s-text>
+            {deviceFetcher.state === "submitting" ? "Creating..." : "Create Device"}
+          </s-button>
+        </s-stack>
 
-              <s-stack direction="block" gap="tight">
-                <s-text variant="heading-sm">Device Name</s-text>
-                <input
-                  type="text"
-                  value={deviceName}
-                  onChange={(e) => setDeviceName(e.target.value)}
-                  placeholder="Workshop Pi #1"
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "4px",
-                    border: "1px solid #ccc",
-                    fontSize: "14px",
-                  }}
-                />
-              </s-stack>
-
-              {deviceFetcher.data?.message && !deviceFetcher.data?.success && (
-                <s-banner tone="critical">{deviceFetcher.data.message}</s-banner>
-              )}
-
-              <s-stack direction="inline" gap="tight">
-                <s-button
-                  variant="primary"
-                  onClick={handleCreateDevice}
-                  disabled={!deviceName || deviceFetcher.state === "submitting"}
-                >
-                  {deviceFetcher.state === "submitting" ? "Creating..." : "Create Device"}
-                </s-button>
-                <s-button variant="tertiary" onClick={() => setShowDeviceModal(false)}>
-                  Cancel
-                </s-button>
-              </s-stack>
-            </s-stack>
-          </div>
-        </div>
-      )}
+        <s-stack slot="secondaryActions">
+          <s-button onClick={() => setShowDeviceModal(false)}>
+            Cancel
+          </s-button>
+        </s-stack>
+      </s-modal>
 
       {/* API Key Modal */}
-      {showApiKeyModal && newDevice && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: "24px",
-              borderRadius: "8px",
-              maxWidth: "600px",
-              width: "90%",
+      <s-modal
+        id="api-key-modal"
+        heading="Device Created Successfully!"
+        open={showApiKeyModal && !!newDevice}
+        onClose={() => {
+          setShowApiKeyModal(false);
+          setNewDevice(null);
+        }}
+      >
+        <s-stack direction="block" gap="base">
+          <s-banner tone="attention">
+            <s-text variant="body-md">
+              <strong>Save this API key now!</strong> For security reasons, it won't be shown again.
+            </s-text>
+          </s-banner>
+
+          <s-stack direction="block" gap="tight">
+            <s-text variant="heading-sm">Device Name</s-text>
+            <s-text variant="body-md">{newDevice?.name}</s-text>
+          </s-stack>
+
+          <s-stack direction="block" gap="tight">
+            <s-text variant="heading-sm">API Key</s-text>
+            <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+              <s-text style={{ fontFamily: "monospace", fontSize: "13px", wordBreak: "break-all" }}>
+                {newDevice?.apiKey}
+              </s-text>
+            </s-box>
+            <s-button
+              variant="primary"
+              onClick={() => copyToClipboard(newDevice?.apiKey || "", "apiKey")}
+            >
+              {copiedApiKey ? "✓ Copied!" : "Copy API Key"}
+            </s-button>
+          </s-stack>
+
+          <s-stack direction="block" gap="tight">
+            <s-text variant="heading-sm">Next Steps</s-text>
+            <s-ordered-list>
+              <s-list-item>Copy the API key above</s-list-item>
+              <s-list-item>Open your Raspberry Pi Print Farm</s-list-item>
+              <s-list-item>Go to Settings → Integrations</s-list-item>
+              <s-list-item>Paste the API key</s-list-item>
+              <s-list-item>Your device will start receiving orders automatically</s-list-item>
+            </s-ordered-list>
+          </s-stack>
+        </s-stack>
+
+        <s-stack slot="primaryAction">
+          <s-button
+            variant="primary"
+            onClick={() => {
+              setShowApiKeyModal(false);
+              setNewDevice(null);
             }}
           >
-            <s-stack direction="block" gap="base">
-              <s-text variant="heading-lg">Device Created Successfully!</s-text>
-
-              <s-banner tone="attention">
-                <s-stack direction="block" gap="tight">
-                  <s-text variant="body-md">
-                    <strong>Save this API key now!</strong> For security reasons, it won't be shown again.
-                  </s-text>
-                </s-stack>
-              </s-banner>
-
-              <s-stack direction="block" gap="tight">
-                <s-text variant="heading-sm">Device Name</s-text>
-                <s-text variant="body-md">{newDevice.name}</s-text>
-              </s-stack>
-
-              <s-stack direction="block" gap="tight">
-                <s-text variant="heading-sm">API Key</s-text>
-                <div
-                  style={{
-                    background: "#f9f9f9",
-                    padding: "12px",
-                    borderRadius: "4px",
-                    fontFamily: "monospace",
-                    fontSize: "13px",
-                    wordBreak: "break-all",
-                    border: "1px solid #e0e0e0",
-                  }}
-                >
-                  {newDevice.apiKey}
-                </div>
-                <s-button
-                  variant="primary"
-                  onClick={() => copyToClipboard(newDevice.apiKey, "apiKey")}
-                >
-                  {copiedApiKey ? "Copied!" : "Copy API Key"}
-                </s-button>
-              </s-stack>
-
-              <s-stack direction="block" gap="tight">
-                <s-text variant="heading-sm">Next Steps</s-text>
-                <s-ordered-list>
-                  <s-list-item>Copy the API key above</s-list-item>
-                  <s-list-item>Open your Raspberry Pi Print Farm</s-list-item>
-                  <s-list-item>Go to Settings → Integrations</s-list-item>
-                  <s-list-item>Paste the API key</s-list-item>
-                  <s-list-item>Your device will start receiving orders automatically</s-list-item>
-                </s-ordered-list>
-              </s-stack>
-
-              <s-button
-                variant="primary"
-                onClick={() => {
-                  setShowApiKeyModal(false);
-                  setNewDevice(null);
-                }}
-              >
-                Done
-              </s-button>
-            </s-stack>
-          </div>
-        </div>
-      )}
+            Done
+          </s-button>
+        </s-stack>
+      </s-modal>
     </s-page>
   );
 }

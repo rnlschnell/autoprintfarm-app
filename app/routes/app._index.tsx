@@ -70,111 +70,131 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function Index() {
-  const { shop, shopDomain, deviceCount, orderCount } = useLoaderData<typeof loader>();
+  const { shop, shopDomain, deviceCount, orderCount, tenantConnected } = useLoaderData<typeof loader>();
 
   return (
-    <s-page heading="AutoPrintFarm Dashboard">
-      <s-section heading="Welcome to AutoPrintFarm">
-        <s-paragraph>
-          Connect your Raspberry Pi 3D print farms to automatically receive orders from your Shopify store.
-        </s-paragraph>
+    <s-page heading="Dashboard">
+      {!tenantConnected && (
+        <s-section>
+          <s-banner tone="info">
+            <s-text variant="body-md">
+              Welcome to AutoPrintFarm! To get started, connect your Print Farm by clicking the "Devices" tab and entering your Tenant ID.
+            </s-text>
+          </s-banner>
+        </s-section>
+      )}
+
+      <s-section heading="Quick Stats">
+        <s-stack direction="inline" gap="base">
+          <s-box padding="large" borderWidth="base" borderRadius="base" style={{ flex: 1, minWidth: "200px" }}>
+            <s-stack direction="block" gap="tight" align="start">
+              <s-text variant="body-sm" tone="subdued">Connected Devices</s-text>
+              <s-text variant="heading-xl">{deviceCount}</s-text>
+              {!tenantConnected && (
+                <s-text variant="body-sm" tone="subdued">Connect your Print Farm to add devices</s-text>
+              )}
+            </s-stack>
+          </s-box>
+
+          <s-box padding="large" borderWidth="base" borderRadius="base" style={{ flex: 1, minWidth: "200px" }}>
+            <s-stack direction="block" gap="tight" align="start">
+              <s-text variant="body-sm" tone="subdued">Orders (Last 30 Days)</s-text>
+              <s-text variant="heading-xl">{orderCount}</s-text>
+              <s-text variant="body-sm" tone="subdued">Automatic order sync coming soon</s-text>
+            </s-stack>
+          </s-box>
+        </s-stack>
       </s-section>
 
       <s-section heading="Store Information">
-        <s-stack direction="block" gap="base">
-          <s-stack direction="inline" gap="base">
-            <s-text variant="heading-sm">Store Name:</s-text>
-            <s-text>{shop?.name || shopDomain}</s-text>
-          </s-stack>
-          <s-stack direction="inline" gap="base">
-            <s-text variant="heading-sm">Email:</s-text>
-            <s-text>{shop?.email}</s-text>
-          </s-stack>
-          <s-stack direction="inline" gap="base">
-            <s-text variant="heading-sm">Plan:</s-text>
-            <s-text>{shop?.plan?.displayName}</s-text>
-          </s-stack>
-          <s-stack direction="inline" gap="base">
-            <s-text variant="heading-sm">Currency:</s-text>
-            <s-text>{shop?.currencyCode}</s-text>
-          </s-stack>
-        </s-stack>
-      </s-section>
-
-      <s-section heading="Quick Stats">
-        <s-stack direction="block" gap="base">
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-stack direction="block" gap="tight">
-              <s-text variant="heading-lg">{deviceCount}</s-text>
-              <s-text>Connected Print Farm Devices</s-text>
+        <s-box padding="base" borderWidth="base" borderRadius="base">
+          <s-stack direction="block" gap="base">
+            <s-stack direction="inline" gap="large">
+              <s-stack direction="block" gap="tight" style={{ flex: 1 }}>
+                <s-text variant="body-sm" tone="subdued">Store Name</s-text>
+                <s-text variant="body-md">{shop?.name || shopDomain}</s-text>
+              </s-stack>
+              <s-stack direction="block" gap="tight" style={{ flex: 1 }}>
+                <s-text variant="body-sm" tone="subdued">Email</s-text>
+                <s-text variant="body-md">{shop?.email}</s-text>
+              </s-stack>
             </s-stack>
-          </s-box>
-
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-stack direction="block" gap="tight">
-              <s-text variant="heading-lg">{orderCount}</s-text>
-              <s-text>Orders (Last 30 Days)</s-text>
+            <s-stack direction="inline" gap="large">
+              <s-stack direction="block" gap="tight" style={{ flex: 1 }}>
+                <s-text variant="body-sm" tone="subdued">Plan</s-text>
+                <s-text variant="body-md">{shop?.plan?.displayName}</s-text>
+              </s-stack>
+              <s-stack direction="block" gap="tight" style={{ flex: 1 }}>
+                <s-text variant="body-sm" tone="subdued">Currency</s-text>
+                <s-text variant="body-md">{shop?.currencyCode}</s-text>
+              </s-stack>
             </s-stack>
-          </s-box>
-        </s-stack>
+          </s-stack>
+        </s-box>
       </s-section>
 
       <s-section heading="Get Started">
         <s-stack direction="block" gap="base">
           <s-paragraph>
-            To connect your Raspberry Pi print farm:
+            Follow these steps to connect your Raspberry Pi print farm:
           </s-paragraph>
-          <s-unordered-list>
+          <s-ordered-list>
             <s-list-item>
-              Click "Devices" in the navigation menu
+              Navigate to the Devices page using the menu
             </s-list-item>
             <s-list-item>
-              Click "Add Print Farm Device"
+              Enter your Print Farm Tenant ID to connect
             </s-list-item>
             <s-list-item>
-              Copy the generated API credentials
+              Add one or more devices and copy their API keys
             </s-list-item>
             <s-list-item>
-              Configure your Raspberry Pi with these credentials
+              Configure each Raspberry Pi with its unique API key
             </s-list-item>
-          </s-unordered-list>
+          </s-ordered-list>
           <s-button href="/app/devices" variant="primary">
-            Manage Devices
+            Go to Devices
           </s-button>
         </s-stack>
       </s-section>
 
       <s-section slot="aside" heading="How It Works">
         <s-stack direction="block" gap="base">
-          <s-paragraph>
-            <s-text variant="heading-sm">1. Install App</s-text>
-          </s-paragraph>
-          <s-paragraph>
-            Install this app in your Shopify store to enable order synchronization.
-          </s-paragraph>
+          <s-box padding="base" borderRadius="base" background="subdued">
+            <s-stack direction="block" gap="tight">
+              <s-text variant="heading-sm">1. Connect Print Farm</s-text>
+              <s-paragraph>
+                Link your Raspberry Pi Print Farm to your Shopify store using your unique Tenant ID.
+              </s-paragraph>
+            </s-stack>
+          </s-box>
 
-          <s-paragraph>
-            <s-text variant="heading-sm">2. Connect Devices</s-text>
-          </s-paragraph>
-          <s-paragraph>
-            Generate API credentials for each Raspberry Pi print farm you want to connect.
-          </s-paragraph>
+          <s-box padding="base" borderRadius="base" background="subdued">
+            <s-stack direction="block" gap="tight">
+              <s-text variant="heading-sm">2. Add Devices</s-text>
+              <s-paragraph>
+                Generate secure API credentials for each Raspberry Pi device you want to connect.
+              </s-paragraph>
+            </s-stack>
+          </s-box>
 
-          <s-paragraph>
-            <s-text variant="heading-sm">3. Automatic Sync</s-text>
-          </s-paragraph>
-          <s-paragraph>
-            Your Pi devices will automatically receive new orders and can start printing.
-          </s-paragraph>
+          <s-box padding="base" borderRadius="base" background="subdued">
+            <s-stack direction="block" gap="tight">
+              <s-text variant="heading-sm">3. Automatic Sync</s-text>
+              <s-paragraph>
+                Your Pi devices will automatically poll for new orders and begin printing.
+              </s-paragraph>
+            </s-stack>
+          </s-box>
         </s-stack>
       </s-section>
 
       <s-section slot="aside" heading="Need Help?">
         <s-stack direction="block" gap="base">
           <s-paragraph>
-            Visit our documentation for setup guides and troubleshooting.
+            Visit our documentation for detailed setup guides and troubleshooting tips.
           </s-paragraph>
-          <s-button href="https://github.com/yourusername/autoprintfarm" target="_blank" variant="tertiary">
+          <s-button href="https://github.com/rnlschnell/autoprintfarm-app" target="_blank">
             View Documentation
           </s-button>
         </s-stack>
